@@ -1,100 +1,72 @@
-// 🔑 index.js - /voice3 완전 수정본
-
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
-
-// 🔑 봇 설정
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates // 음성채널 상태 확인
-  ]
-});
-
-// 🔑 토큰 (Render 환경변수)
-const TOKEN = process.env.TOKEN;
-
-// 🔑 슬래시 명령어 등록
-const commands = [
-  new SlashCommandBuilder()
-    .setName('voice3')
-    .setDescription('음성 채널 유저를 태그별로 그룹화하여 출력')
-    .toJSON()
-];
-
-// 🔑 명령어 등록
-const rest = new REST({ version: '10' }).setToken(TOKEN);
-(async () => {
-  try {
-    console.log('슬래시 명령어 등록 중...');
-    await rest.put(
-      Routes.applicationCommands('1487489265448390830'), // <-- Application ID
-      { body: commands }
-    );
-    console.log('슬래시 명령어 등록 완료!');
-  } catch (error) {
-    console.error(error);
-  }
-})();
-
-// 🔑 봇 준비 완료
-client.once('ready', () => {
-  console.log(`Logged in as ${client.user.tag}`);
-});
-
-// 🔑 슬래시 명령어 처리
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === 'voice3') {
-    const channel = interaction.member.voice.channel;
-    if (!channel) return interaction.reply('❌ 음성 채널에 먼저 들어가세요!');
+  if (interaction.commandName === 'voice3') { // <-- 명령어 이름 변경
+    const member = interaction.member;
+    const channel = member.voice.channel;
 
-    const members = channel.members
-      .filter(member => !member.user.bot) // 봇 제외
-      .map(member => member.displayName);
+    if (!channel) {
+      return interaction.reply('음성채널에 들어가 있어야 합니다.');
+    }
 
-    if (members.length === 0) return interaction.reply('👻 음성 채널에 유저가 없습니다.');
+    const members = channel.members.map(m => m.displayName);
 
-    // 🔹 태그별 그룹화
-    const groups = {
+    // 태그별 그룹 초기화
+    const tagGroups = {
       '패왕': [],
+      '베스트': [],
       '스타': [],
-      'BEST': [], // 베스트와 합쳐서
-      '발록': [],
       '명가': [],
       '기타': []
     };
 
     members.forEach(name => {
-      const tagMatch = name.trim().match(/^\[(.*?)\]/); // 앞 태그만 추출
-      let displayName = name; // 실제 표시할 이름
+      let matched = false;
 
-      if (tagMatch) {
-        let tag = tagMatch[1].trim();
+      // 닉네임/레벨/직업 추출
+      const infoMatch = name.match(/([^\[\]/]+)(?:\/(\d+))?(?:\/(.+))?$/);
+      let displayName = infoMatch
+        ? infoMatch[2] 
+          ? `${infoMatch[1].trim()}/${infoMatch[2].trim()}/${(infoMatch[3]||'').trim()}` 
+          : infoMatch[1].trim()
+        : name;
 
-        if (tag === '베스트' || tag === 'BEST') tag = 'BEST';
-
-        // 닉네임에서 앞 태그 제거
-        displayName = name.replace(/^\[.*?\]/, '').trim();
-
-        if (groups[tag]) groups[tag].push(displayName);
-        else groups['기타'].push(displayName);
-      } else {
-        groups['기타'].push(name);
+      // [패왕] 태그
+      if (name.includes('[패왕]')) {
+        tagGroups['패왕'].push(displayName);
+        matched = true;
       }
+
+      // [베스트] 또는 [BEST] 포함
+      if (name.includes('[베스트]') || name.includes('[BEST]')) {
+        tagGroups['베스트'].push(displayName);
+        matched = true;
+      }
+
+      // [스타] 태그
+      if (name.includes('[스타]')) {
+        tagGroups['스타'].push(displayName);
+        matched = true;
+      }
+
+      // [명가] 태그
+      if (name.includes('[명가]')) {
+        tagGroups['명가'].push(displayName);
+        matched = true;
+      }
+
+      // 기타 → 태그 그대로 유지
+      if (!matched) tagGroups['기타'].push(name);
     });
 
-    // 🔹 출력 텍스트 구성
-    let replyText = '';
-    for (const [tag, list] of Object.entries(groups)) {
-      if (list.length > 0) {
-        replyText += `\n[${tag}]\n${list.join('\n')}\n`;
-      }
+    // 메시지 작성
+    let message = '';
+    for (const [tag, list] of Object.entries(tagGroups)) {
+      if (list.length === 0) continue; // 인원이 0이면 생략
+      message += `[${tag}]\n인원수 : ${list.length}명\n\n`;
+      message += list.join('\n') + '\n\n';
     }
 
-    await interaction.reply(`🔊 현재 음성 채널 유저:${replyText}`);
+    await interaction.reply(message);
   }
 });
-
-// 🔑 로그인
-client.login(TOKEN);
