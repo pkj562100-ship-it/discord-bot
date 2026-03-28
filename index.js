@@ -38,11 +38,28 @@ client.once('ready', () => {
 });
 
 // 🔑 명령어 처리
-client.on('interactionCreate', async interaction => {
+cclient.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'voice') {
-    await interaction.reply('봇 정상 작동!');
+
+    const channel = interaction.member.voice.channel;
+
+    if (!channel) {
+      return interaction.reply('❌ 음성 채널에 먼저 들어가세요!');
+    }
+
+    const members = channel.members
+      .filter(member => !member.user.bot)
+      .map(member => member.displayName);
+
+    if (members.length === 0) {
+      return interaction.reply('👻 음성 채널에 유저가 없습니다.');
+    }
+
+    const list = members.join('\n');
+
+    await interaction.reply(`🔊 현재 음성 채널 유저:\n${list}`);
   }
 });
 
