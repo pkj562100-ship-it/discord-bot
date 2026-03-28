@@ -1,12 +1,14 @@
 {
   "name": "discord-bot",
   "version": "1.0.0",
-  "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
   },
   "dependencies": {
-    "discord.js": "^14.25.1"
+    "discord.js": "^14.14.1",
+    "@discordjs/rest": "^1.6.0",
+    "discord-api-types": "^0.37.35"
   }
 }
