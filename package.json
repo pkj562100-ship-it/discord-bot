@@ -4,24 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/pkj562100-ship-it/discord-bot.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/pkj562100-ship-it/discord-bot/issues"
-  },
-  "homepage": "https://github.com/pkj562100-ship-it/discord-bot#readme",
   "dependencies": {
     "discord.js": "^14.25.1"
   }
-}
-"scripts": {
-  "start": "node index.js"
 }
