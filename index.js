@@ -1,4 +1,4 @@
-// 🔑 index.js - 완전 완성형
+// 🔑 index.js - /voice3 완전 수정본
 
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
 
@@ -6,7 +6,7 @@ const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildVoiceStates // 음성채널 상태 확인용
+    GatewayIntentBits.GuildVoiceStates // 음성채널 상태 확인
   ]
 });
 
@@ -16,7 +16,7 @@ const TOKEN = process.env.TOKEN;
 // 🔑 슬래시 명령어 등록
 const commands = [
   new SlashCommandBuilder()
-    .setName('voice2')
+    .setName('voice3')
     .setDescription('음성 채널 유저를 태그별로 그룹화하여 출력')
     .toJSON()
 ];
@@ -27,7 +27,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   try {
     console.log('슬래시 명령어 등록 중...');
     await rest.put(
-      Routes.applicationCommands('1487489265448390830'), // <-- 너의 봇 Application ID
+      Routes.applicationCommands('1487489265448390830'), // <-- Application ID
       { body: commands }
     );
     console.log('슬래시 명령어 등록 완료!');
@@ -45,7 +45,7 @@ client.once('ready', () => {
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === 'voice2') {
+  if (interaction.commandName === 'voice3') {
     const channel = interaction.member.voice.channel;
     if (!channel) return interaction.reply('❌ 음성 채널에 먼저 들어가세요!');
 
@@ -59,20 +59,26 @@ client.on('interactionCreate', async interaction => {
     const groups = {
       '패왕': [],
       '스타': [],
-      'BEST': [],   // 베스트와 합쳐서
+      'BEST': [], // 베스트와 합쳐서
       '발록': [],
       '명가': [],
       '기타': []
     };
 
     members.forEach(name => {
-      const tagMatch = name.match(/^\[(.*?)\]/); // [태그] 추출
-      if (tagMatch) {
-        let tag = tagMatch[1];
-        if (tag === '베스트') tag = 'BEST'; // 베스트 통합
+      const tagMatch = name.trim().match(/^\[(.*?)\]/); // 앞 태그만 추출
+      let displayName = name; // 실제 표시할 이름
 
-        if (groups[tag]) groups[tag].push(name);
-        else groups['기타'].push(name);
+      if (tagMatch) {
+        let tag = tagMatch[1].trim();
+
+        if (tag === '베스트' || tag === 'BEST') tag = 'BEST';
+
+        // 닉네임에서 앞 태그 제거
+        displayName = name.replace(/^\[.*?\]/, '').trim();
+
+        if (groups[tag]) groups[tag].push(displayName);
+        else groups['기타'].push(displayName);
       } else {
         groups['기타'].push(name);
       }
@@ -86,7 +92,7 @@ client.on('interactionCreate', async interaction => {
       }
     }
 
-    await interaction.reply(`🔊 현재 음성 채널 유저:\n${replyText}`);
+    await interaction.reply(`🔊 현재 음성 채널 유저:${replyText}`);
   }
 });
 
