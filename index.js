@@ -2,9 +2,11 @@ const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require
 
 // 🔑 봇 설정
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates // 👈 추가
+  ]
 });
-
 // 🔑 토큰 (Render 환경변수에 넣은 TOKEN)
 const TOKEN = process.env.TOKEN;
 
@@ -38,7 +40,7 @@ client.once('ready', () => {
 });
 
 // 🔑 명령어 처리
-cclient.on('interactionCreate', async interaction => {
+client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'voice') {
