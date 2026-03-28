@@ -25,7 +25,10 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   try {
     console.log('슬래시 명령어 등록 중...');
     await rest.put(
-      Routes.applicationCommands('1487489265448390830'),
+     Routes.applicationGuildCommands(
+    '1487489265448390830', // 앱 ID
+    '1469509176764928095' // 👈 여기에 니 디스코드 서버 ID 넣기
+  ),
       { body: commands }
     );
     console.log('슬래시 명령어 등록 완료!');
