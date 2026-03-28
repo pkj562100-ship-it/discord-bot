@@ -13,7 +13,7 @@ const TOKEN = process.env.TOKEN;
 // 🔑 슬래시 명령어 등록
 const commands = [
   new SlashCommandBuilder()
-    .setName('voice')
+    .setName('voice2')
     .setDescription('봇 테스트 명령어')
     .toJSON()
 ];
@@ -43,7 +43,7 @@ client.once('ready', () => {
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === 'voice') {
+  if (interaction.commandName === 'voice2') {
 
     const channel = interaction.member.voice.channel;
 
