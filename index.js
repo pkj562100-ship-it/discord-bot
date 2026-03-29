@@ -9,7 +9,7 @@ const client = new Client({
 
 const TOKEN = process.env.TOKEN;
 const APPLICATION_ID = '1487489265448390830'; // 본인 Application ID
-const GUILD_ID = '1469509176764928095';       // 본인 서버 ID
+const GUILD_ID = '여기에_서버ID_입력';       // 본인 서버 ID
 
 let bloodTaxRate = 20;
 
@@ -22,7 +22,7 @@ const colors = {
   '기타': 0x808080
 };
 
-// ------------------- 슬래시 명령어 등록 -------------------
+// ------------------- 슬래시 명령어 정의 -------------------
 const commands = [
   new SlashCommandBuilder()
     .setName('인원')
@@ -62,19 +62,28 @@ const commands = [
 ];
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
+
 (async () => {
   try {
-    console.log('슬래시 명령어 서버 등록 중...');
+    console.log('기존 글로벌 명령어 삭제 중...');
+    const globalCommands = await rest.get(Routes.applicationCommands(APPLICATION_ID));
+    for (const cmd of globalCommands) {
+      await rest.delete(Routes.applicationCommands(APPLICATION_ID, cmd.id));
+      console.log(`삭제 완료: ${cmd.name}`);
+    }
+
+    console.log('새 서버 단위 명령어 등록 중...');
     await rest.put(
       Routes.applicationGuildCommands(APPLICATION_ID, GUILD_ID),
       { body: commands }
     );
-    console.log('슬래시 명령어 서버 등록 완료!');
+    console.log('서버 단위 명령어 등록 완료!');
   } catch (error) {
     console.error(error);
   }
 })();
 
+// ------------------- 봇 이벤트 -------------------
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
