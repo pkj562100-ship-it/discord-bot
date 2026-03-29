@@ -1,56 +1,100 @@
-require('dotenv').config();
-const { Client, GatewayIntentBits } = require('discord.js');
+// 🔑 index.js - /voice3 최신 버전 (발록 추가)
 
-// client 선언
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } = require('discord.js');
+
+// 🔑 봇 설정
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates
+  ]
 });
 
-// 로그인
-client.login(process.env.DISCORD_TOKEN);
+// 🔑 토큰 (Render 환경변수)
+const TOKEN = process.env.TOKEN;
 
-// 봇 준비 완료 이벤트
-client.on('ready', () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+// 🔑 슬래시 명령어 등록
+const commands = [
+  new SlashCommandBuilder()
+    .setName('voice3')
+    .setDescription('음성 채널 유저를 태그별로 그룹화하여 출력')
+    .toJSON()
+];
+
+// 🔑 명령어 등록
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+(async () => {
+  try {
+    console.log('슬래시 명령어 등록 중...');
+    await rest.put(
+      Routes.applicationCommands('1487489265448390830'), // <-- Application ID
+      { body: commands }
+    );
+    console.log('슬래시 명령어 등록 완료!');
+  } catch (error) {
+    console.error(error);
+  }
+})();
+
+// 🔑 봇 준비 완료
+client.once('ready', () => {
+  console.log(`Logged in as ${client.user.tag}`);
 });
 
-// 슬래시 명령어 처리
+// 🔑 슬래시 명령어 처리
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === 'voice3') {
     const channel = interaction.member.voice.channel;
-    if (!channel) return interaction.reply('음성채널에 들어가 있어야 합니다.');
+    if (!channel) return interaction.reply('❌ 음성 채널에 먼저 들어가세요!');
 
-    // 현재 채널 접속자 닉네임 수집
-    const members = channel.members.map(m => m.displayName);
+    const members = channel.members
+      .filter(member => !member.user.bot) // 봇 제외
+      .map(member => member.displayName);
 
-    // 태그별 그룹 생성
-    const tagGroups = { '패왕': [], '베스트': [], '스타': [], '명가': [], '발록': [], '기타': [] };
+    if (members.length === 0) return interaction.reply('👻 음성 채널에 유저가 없습니다.');
+
+    // 🔹 태그별 그룹화 (발록 추가)
+    const groups = {
+      '패왕': [],
+      '스타': [],
+      'BEST': [], // 베스트/Best 통합
+      '발록': [],
+      '명가': [],
+      '기타': []
+    };
 
     members.forEach(name => {
-      let matched = false;
+      const tagMatch = name.trim().match(/^\[(.*?)\]/); // 앞 태그 추출
+      let displayName = name; // 실제 표시할 이름
 
-      // 태그 제거 후 닉네임만 사용
-      let displayName = name.replace(/\[.*?\]/g, '').trim();
+      if (tagMatch) {
+        let tag = tagMatch[1].trim();
 
-      if (name.includes('[패왕]')) { tagGroups['패왕'].push(displayName); matched = true; }
-      if (name.includes('[베스트]') || name.includes('[BEST]')) { tagGroups['베스트'].push(displayName); matched = true; }
-      if (name.includes('[스타]')) { tagGroups['스타'].push(displayName); matched = true; }
-      if (name.includes('[명가]')) { tagGroups['명가'].push(displayName); matched = true; }
-      if (name.includes('[발록]')) { tagGroups['명가'].push(displayName); matched = true; }
-      if (!matched) tagGroups['기타'].push(name); // 기타는 태그 포함
+        if (tag === '베스트' || tag === 'BEST') tag = 'BEST';
+
+        // 닉네임에서 앞 태그 제거
+        displayName = name.replace(/^\[.*?\]/, '').trim();
+
+        if (groups[tag]) groups[tag].push(displayName);
+        else groups['기타'].push(displayName);
+      } else {
+        groups['기타'].push(name);
+      }
     });
 
-    // 메시지 생성
-    let message = '';
-    for (const [tag, list] of Object.entries(tagGroups)) {
-      if (list.length === 0) continue;
-      message += `[${tag}]\n인원수 : ${list.length}명\n\n`;
-      message += list.join('\n') + '\n\n';
+    // 🔹 출력 텍스트 구성
+    let replyText = '';
+    for (const [tag, list] of Object.entries(groups)) {
+      if (list.length > 0) {
+        replyText += `\n[${tag}]\n${list.join('\n')}\n`;
+      }
     }
 
-    // 응답
-    await interaction.reply(message);
+    await interaction.reply(`🔊 현재 음성 채널 유저:${replyText}`);
   }
 });
+
+// 🔑 로그인
+client.login(TOKEN);
