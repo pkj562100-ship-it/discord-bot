@@ -1,12 +1,25 @@
-const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+// index.js
 require('dotenv').config();
+const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 const TOKEN = process.env.TOKEN;
 const APPLICATION_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
+if (!TOKEN || !APPLICATION_ID || !GUILD_ID) {
+  console.error('⚠️ 환경 변수가 설정되지 않았습니다. .env 혹은 Render 환경 변수 확인 필요');
+  process.exit(1);
+}
+
+// 봇 클라이언트
+const client = new Client({
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
+});
+
+// 혈비 초기값
 let bloodTaxRate = 20;
 
+// 색상
 const colors = {
   '패왕': 0x0000FF,
   '스타': 0xFFFF00,
@@ -16,12 +29,13 @@ const colors = {
   '기타': 0x808080
 };
 
-// ------------------- 서버 단위 명령어 정의 -------------------
+// ------------------- 슬래시 명령어 정의 -------------------
 const commands = [
   new SlashCommandBuilder()
     .setName('인원')
     .setDescription('음성 채널 유저를 태그별로 그룹화하여 출력 (색상)')
     .toJSON(),
+  
   new SlashCommandBuilder()
     .setName('혈비')
     .setDescription('혈비를 설정합니다')
@@ -30,6 +44,7 @@ const commands = [
         .setDescription('혈비 %를 입력 (0~100)')
         .setRequired(true))
     .toJSON(),
+  
   new SlashCommandBuilder()
     .setName('정산1')
     .setDescription('혈비 제외 후 인원수 기반 정산')
@@ -40,6 +55,7 @@ const commands = [
     .addIntegerOption(option => option.setName('베스트인원수').setDescription('BEST 혈맹 인원 수').setRequired(true))
     .addIntegerOption(option => option.setName('발록인원수').setDescription('발록 혈맹 인원 수').setRequired(true))
     .toJSON(),
+  
   new SlashCommandBuilder()
     .setName('정산2')
     .setDescription('혈비 없이 인원수 기반 정산')
@@ -54,29 +70,28 @@ const commands = [
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
+// ------------------- 글로벌 삭제 + 서버 단위 등록 -------------------
 (async () => {
   try {
-    console.log('1️⃣ 기존 글로벌 명령어 삭제 중...');
+    console.log('🔹 기존 글로벌 명령어 삭제 중...');
     const globalCommands = await rest.get(Routes.applicationCommands(APPLICATION_ID));
     for (const cmd of globalCommands) {
       await rest.delete(Routes.applicationCommands(APPLICATION_ID, cmd.id));
-      console.log(`삭제 완료: ${cmd.name}`);
+      console.log(`✅ 삭제 완료: ${cmd.name}`);
     }
 
-    console.log('2️⃣ 서버 단위 명령어 등록 중...');
+    console.log('🔹 서버 단위 명령어 등록 중...');
     await rest.put(
       Routes.applicationGuildCommands(APPLICATION_ID, GUILD_ID),
       { body: commands }
     );
     console.log('✅ 서버 단위 명령어 등록 완료!');
   } catch (error) {
-    console.error(error);
+    console.error('❌ 명령어 등록 오류:', error);
   }
 })();
 
 // ------------------- 봇 이벤트 -------------------
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
-
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
@@ -96,6 +111,7 @@ client.on('interactionCreate', async interaction => {
     if (members.length === 0) return interaction.reply('👻 음성 채널에 유저가 없습니다.');
 
     const groups = { '패왕': [], '스타': [], 'BEST': [], '발록': [], '명가': [], '기타': [] };
+
     members.forEach(name => {
       const tagMatch = name.trim().match(/^\[(.*?)\]/);
       let displayName = name;
@@ -133,6 +149,7 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === '정산1') {
     const itemName = interaction.options.getString('아이템이름');
     const totalAmount = interaction.options.getInteger('아이템금액');
+
     const counts = {
       '패왕': interaction.options.getInteger('패왕인원수'),
       '스타': interaction.options.getInteger('스타인원수'),
@@ -178,6 +195,7 @@ client.on('interactionCreate', async interaction => {
   if (interaction.commandName === '정산2') {
     const itemName = interaction.options.getString('아이템이름');
     const totalAmount = interaction.options.getInteger('아이템금액');
+
     const counts = {
       '패왕': interaction.options.getInteger('패왕인원수'),
       '스타': interaction.options.getInteger('스타인원수'),
@@ -186,6 +204,7 @@ client.on('interactionCreate', async interaction => {
     };
 
     const totalPeople = Object.values(counts).reduce((a,b)=>a+b,0);
+
     const result = {};
     let sum = 0;
     for (let [tag, num] of Object.entries(counts)) {
@@ -218,4 +237,5 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
+// 로그인
 client.login(TOKEN);
