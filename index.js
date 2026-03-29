@@ -70,16 +70,16 @@ const commands = [
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-// ------------------- 글로벌 삭제 + 서버 단위 등록 -------------------
+// ------------------- 명령어 동기화 (기존 것 덮어쓰기) -------------------
 (async () => {
   try {
-    console.log('🔹 기존 글로벌 명령어 삭제 중...');
-    const globalCommands = await rest.get(Routes.applicationCommands(APPLICATION_ID));
-    for (const cmd of globalCommands) {
-      await rest.delete(Routes.applicationCommands(APPLICATION_ID, cmd.id));
-      console.log(`✅ 삭제 완료: ${cmd.name}`);
-    }
+    // 1. 글로벌 명령어 초기화 (빈 배열을 PUT 하여 모든 글로벌 명령어 삭제)
+    console.log('🔹 기존 글로벌 명령어 초기화 중...');
+    await rest.put(Routes.applicationCommands(APPLICATION_ID), { body: [] });
+    console.log('✅ 글로벌 명령어 초기화 완료');
 
+    // 2. 서버(Guild) 단위 명령어 등록
+    // 이 방식은 해당 서버에 있는 기존 명령어를 지우고 현재 commands 배열에 있는 것만 남깁니다.
     console.log('🔹 서버 단위 명령어 등록 중...');
     await rest.put(
       Routes.applicationGuildCommands(APPLICATION_ID, GUILD_ID),
@@ -90,7 +90,6 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
     console.error('❌ 명령어 등록 오류:', error);
   }
 })();
-
 // ------------------- 봇 이벤트 -------------------
 client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
