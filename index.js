@@ -38,6 +38,7 @@ client.on('interactionCreate', async interaction => {
       if (name.includes('[베스트]') || name.includes('[BEST]')) { tagGroups['베스트'].push(displayName); matched = true; }
       if (name.includes('[스타]')) { tagGroups['스타'].push(displayName); matched = true; }
       if (name.includes('[명가]')) { tagGroups['명가'].push(displayName); matched = true; }
+      if (name.includes('[발록]')) { tagGroups['명가'].push(displayName); matched = true; }
       if (!matched) tagGroups['기타'].push(name); // 기타는 태그 포함
     });
 
