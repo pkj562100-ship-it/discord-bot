@@ -26,7 +26,7 @@ client.on('interactionCreate', async interaction => {
     const members = channel.members.map(m => m.displayName);
 
     // 태그별 그룹 생성
-    const tagGroups = { '패왕': [], '베스트': [], '스타': [], '명가': [], '기타': [] };
+    const tagGroups = { '패왕': [], '베스트': [], '스타': [], '명가': [], '발록': [], '기타': [] };
 
     members.forEach(name => {
       let matched = false;
