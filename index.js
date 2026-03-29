@@ -9,7 +9,7 @@ const client = new Client({
 
 const TOKEN = process.env.TOKEN;
 const APPLICATION_ID = '1487489265448390830'; // 본인 Application ID
-const GUILD_ID = '여기에_서버ID_입력';       // 본인 서버 ID
+const GUILD_ID = '1458400492496617535';       // 본인 서버 ID
 
 let bloodTaxRate = 20;
 
