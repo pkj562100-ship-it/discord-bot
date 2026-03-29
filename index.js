@@ -47,8 +47,7 @@ client.once('ready', () => {
   
   schedule.scheduleJob('10 23 * * *', async () => {
     const channel = client.channels.cache.get(REPORT_CHANNEL_ID);
-    if (!channel) return;
-    if (Object.keys(attendanceLog).length === 0) return;
+    if (!channel || Object.keys(attendanceLog).length === 0) return;
 
     const stats = { '패왕': [], '스타': [], 'BEST': [], '발록': [], '명가': [], '기타': [] };
     Object.entries(attendanceLog).forEach(([name, count]) => {
@@ -105,4 +104,30 @@ client.on('interactionCreate', async interaction => {
     await interaction.reply({ embeds });
   }
 
-  if (
+  if (commandName === '통계') {
+    if (Object.keys(attendanceLog).length === 0) return interaction.reply('📊 기록 없음');
+    await interaction.reply({ content: '📊 실시간 데이터가 쌓이고 있습니다.', ephemeral: true });
+  }
+
+  if (commandName === '통계초기화') { attendanceLog = {}; await interaction.reply('🗑️ 초기화 완료'); }
+
+  if (commandName === '혈비') { bloodTaxRate = options.getInteger('값'); await interaction.reply(`✅ ${bloodTaxRate}% 설정`); }
+
+  if (commandName === '정산1' || commandName === '정산2') {
+    const isTax = commandName === '정산1';
+    const itemName = options.getString('아이템이름');
+    const total = options.getInteger('아이템금액');
+    const p = { '패왕': options.getInteger('패왕인원수'), '스타': options.getInteger('스타인원수'), 'BEST': options.getInteger('베스트인원수'), '발록': options.getInteger('발록인원수') };
+    const target = isTax ? total * (1 - bloodTaxRate / 100) : total;
+    const totalP = Object.values(p).reduce((a, b) => a + b, 0);
+    const res = {}; let sum = 0;
+    for (let [t, n] of Object.entries(p)) { const amt = Math.floor(target * (n / totalP)); res[t] = amt; sum += amt; }
+    const rem = Math.round(target - sum);
+    if (rem > 0) res[Object.entries(p).sort((a, b) => b[1] - a[1])[0][0]] += rem;
+    const embeds = [new EmbedBuilder().setTitle(`💎 ${itemName}`).setDescription(`총: ${total.toLocaleString()}\n${isTax ? `혈비제외: ${Math.floor(target).toLocaleString()}` : '혈비제외 정산'}`).setColor(0x00FF00)];
+    for (let [t, a] of Object.entries(res)) embeds.push(new EmbedBuilder().setTitle(`${t} 정산`).setDescription(`💰 **${a.toLocaleString()}**`).setColor(colors[t]));
+    await interaction.reply({ embeds });
+  }
+});
+
+client.login(TOKEN);
