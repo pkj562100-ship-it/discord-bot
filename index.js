@@ -8,7 +8,8 @@ const client = new Client({
 });
 
 const TOKEN = process.env.TOKEN;
-const APPLICATION_ID = '1487489265448390830';
+const APPLICATION_ID = '1487489265448390830'; // 본인 Application ID
+const GUILD_ID = '1469509176764928095';       // 본인 서버 ID
 
 let bloodTaxRate = 20;
 
@@ -63,12 +64,12 @@ const commands = [
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 (async () => {
   try {
-    console.log('슬래시 명령어 등록 중...');
+    console.log('슬래시 명령어 서버 등록 중...');
     await rest.put(
-      Routes.applicationCommands(APPLICATION_ID),
+      Routes.applicationGuildCommands(APPLICATION_ID, GUILD_ID),
       { body: commands }
     );
-    console.log('슬래시 명령어 등록 완료!');
+    console.log('슬래시 명령어 서버 등록 완료!');
   } catch (error) {
     console.error(error);
   }
