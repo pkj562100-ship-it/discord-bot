@@ -29,40 +29,40 @@ const colors = {
   '기타': 0x808080
 };
 
-// ✅ 명령어 등록
+// ✅ 명령어 등록 (Description 누락 부분 수정 완료)
 const commands = [
   new SlashCommandBuilder()
     .setName('인원')
     .setDescription('현재 채널 인원 체크')
-    .addStringOption(o => o.setName('타임명').setDescription('예: 19시 타임')),
+    .addStringOption(o => o.setName('타임명').setDescription('체크할 타임 이름을 입력하세요 (예: 19시 타임)')),
 
-  new SlashCommandBuilder().setName('통계').setDescription('통계 안내'),
-  new SlashCommandBuilder().setName('통계초기화').setDescription('데이터 초기화'),
+  new SlashCommandBuilder().setName('통계').setDescription('통계 안내를 확인합니다.'),
+  new SlashCommandBuilder().setName('통계초기화').setDescription('오늘의 통계 데이터를 초기화합니다.'),
 
   new SlashCommandBuilder()
     .setName('혈비')
-    .setDescription('혈비 설정')
-    .addIntegerOption(o => o.setName('값').setRequired(true)),
+    .setDescription('혈비 세율을 설정합니다.')
+    .addIntegerOption(o => o.setName('값').setDescription('설정할 혈비 퍼센트(0~100)').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('정산1')
-    .setDescription('혈비 적용 정산')
-    .addStringOption(o => o.setName('아이템이름').setRequired(true))
-    .addIntegerOption(o => o.setName('아이템금액').setRequired(true))
-    .addIntegerOption(o => o.setName('패왕인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('스타인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('베스트인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('발록인원수').setRequired(true)),
+    .setDescription('혈비를 적용하여 정산합니다.')
+    .addStringOption(o => o.setName('아이템이름').setDescription('아이템 이름을 입력하세요').setRequired(true))
+    .addIntegerOption(o => o.setName('아이템금액').setDescription('총 금액을 입력하세요').setRequired(true))
+    .addIntegerOption(o => o.setName('패왕인원수').setDescription('패왕 인원수').setRequired(true))
+    .addIntegerOption(o => o.setName('스타인원수').setDescription('스타 인원수').setRequired(true))
+    .addIntegerOption(o => o.setName('베스트인원수').setDescription('베스트 인원수').setRequired(true))
+    .addIntegerOption(o => o.setName('발록인원수').setDescription('발록 인원수').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('정산2')
-    .setDescription('혈비 없이 정산')
-    .addStringOption(o => o.setName('아이템이름').setRequired(true))
-    .addIntegerOption(o => o.setName('아이템금액').setRequired(true))
-    .addIntegerOption(o => o.setName('패왕인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('스타인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('베스트인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('발록인원수').setRequired(true))
+    .setDescription('혈비 없이 정산합니다.')
+    .addStringOption(o => o.setName('아이템이름').setDescription('아이템 이름을 입력하세요').setRequired(true))
+    .addIntegerOption(o => o.setName('아이템금액').setDescription('총 금액을 입력하세요').setRequired(true))
+    .addIntegerOption(o => o.setName('패왕인원수').setDescription('패왕 인원수').setRequired(true))
+    .addIntegerOption(o => o.setName('스타인원수').setDescription('스타 인원수').setRequired(true))
+    .addIntegerOption(o => o.setName('베스트인원수').setDescription('베스트 인원수').setRequired(true))
+    .addIntegerOption(o => o.setName('발록인원수').setDescription('발록 인원수').setRequired(true))
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -75,99 +75,41 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
     );
     console.log(`✅ ${data.length}개 명령어 등록 완료`);
   } catch (e) {
-    console.error(e);
+    console.error('❌ 명령어 등록 중 오류 발생:', e);
   }
 })();
 
-client.once('ready', () => {
-  console.log(`✅ 봇 온라인: ${client.user.tag}`);
-
-  // ✅ 23:10 자동 통계
-  schedule.scheduleJob('10 23 * * *', async () => {
-    const channel = client.channels.cache.get(REPORT_CHANNEL_ID);
-    if (!channel || Object.keys(attendanceLog).length === 0) return;
-
-    const stats = { '패왕': [], '스타': [], 'BEST': [], '발록': [], '명가': [], '기타': [] };
-
-    Object.values(attendanceLog).forEach(user => {
-      const { name, tag, count } = user;
-      if (stats[tag]) stats[tag].push({ name, count });
-      else stats['기타'].push({ name, count });
-    });
-
-    const embeds = [
-      new EmbedBuilder().setTitle('📊 오늘 최종 통계').setColor(0xFFAA00)
-    ];
-
-    for (const [tag, users] of Object.entries(stats)) {
-      if (users.length > 0) {
-        const list = users
-          .sort((a, b) => b.count - a.count)
-          .map(u => `**${u.name}**: ${u.count}회`)
-          .join('\n');
-
-        embeds.push(
-          new EmbedBuilder()
-            .setTitle(`[${tag}]`)
-            .setDescription(list)
-            .setColor(colors[tag])
-        );
-      }
-    }
-
-    channel.send({ content: '🔔 정기 보고', embeds });
-  });
-
-  // 자정 초기화
-  schedule.scheduleJob('0 0 * * *', () => {
-    attendanceLog = {};
-  });
-});
+// ... (이하 client.once 및 client.on 로직은 동일하므로 생략하거나 그대로 사용하시면 됩니다)
+// ... (전달해주신 코드의 뒷부분을 그대로 붙여넣으세요)
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
-
   const { commandName, options } = interaction;
 
   if (commandName === '인원') {
     if (!interaction.member.voice.channel) {
       return interaction.reply('❌ 음성채널 들어가세요');
     }
-
     const members = interaction.member.voice.channel.members.filter(m => !m.user.bot);
-
     const groups = { '패왕': [], '스타': [], 'BEST': [], '발록': [], '명가': [], '기타': [] };
     const uniqueUsers = new Set();
 
     members.forEach(m => {
       if (uniqueUsers.has(m.id)) return;
       uniqueUsers.add(m.id);
-
       const userId = m.id;
       const rawName = m.displayName;
-
-      // 태그 추출
       const tagMatch = rawName.match(/^\[(.*?)\]/);
       let tag = '기타';
-
       if (tagMatch) {
         tag = tagMatch[1].trim();
         if (tag === '베스트' || tag === 'BEST') tag = 'BEST';
       }
-
-      // 닉네임 정리 (태그 제거 + / 뒤 제거)
-      let cleanName = rawName.replace(/^\[.*?\]/, '').trim();
-      cleanName = cleanName.split('/')[0].trim();
-
-      // 저장 (ID 기준)
-      if (!attendanceLog[userId]) {
-        attendanceLog[userId] = { name: cleanName, tag, count: 0 };
-      }
-
+      let cleanName = rawName.replace(/^\[.*?\]/, '').trim().split('/')[0].trim();
+      if (!attendanceLog[userId]) attendanceLog[userId] = { name: cleanName, tag, count: 0 };
       attendanceLog[userId].count += 1;
       attendanceLog[userId].name = cleanName;
       attendanceLog[userId].tag = tag;
-
       if (groups[tag]) groups[tag].push(cleanName);
       else groups['기타'].push(cleanName);
     });
@@ -178,18 +120,16 @@ client.on('interactionCreate', async interaction => {
         .setDescription(`총 ${members.size}명`)
     ];
 
-    // ✅ 쉼표(,) 출력 적용
     for (const [tag, list] of Object.entries(groups)) {
       if (list.length > 0) {
         embeds.push(
           new EmbedBuilder()
             .setTitle(`[${tag}] (${list.length})`)
             .setDescription(list.join(', '))
-            .setColor(colors[tag])
+            .setColor(colors[tag] || 0x808080)
         );
       }
     }
-
     await interaction.reply({ embeds });
   }
 
