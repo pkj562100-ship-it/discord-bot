@@ -16,7 +16,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildVoiceStates,
-    GatewayIntentBits.GuildMembers // ✅ 추가 (핵심)
+    GatewayIntentBits.GuildMembers
   ],
 });
 
@@ -32,40 +32,65 @@ const colors = {
   '기타': 0x808080
 };
 
-// ✅ 명령어 등록
+// ✅ 명령어 등록 (에러 방지 완료)
 const commands = [
   new SlashCommandBuilder()
     .setName('인원')
     .setDescription('현재 채널 인원 체크')
-    .addStringOption(o => o.setName('타임명').setDescription('예: 19시 타임')),
+    .addStringOption(o =>
+      o.setName('타임명')
+       .setDescription('예: 19시 타임')
+       .setRequired(false)
+    ),
 
-  new SlashCommandBuilder().setName('통계').setDescription('오늘의 누적 통계를 확인합니다.'),
-  new SlashCommandBuilder().setName('통계초기화').setDescription('데이터를 초기화합니다.'),
+  new SlashCommandBuilder()
+    .setName('통계')
+    .setDescription('오늘의 누적 통계를 확인합니다.'),
+
+  new SlashCommandBuilder()
+    .setName('통계초기화')
+    .setDescription('데이터를 초기화합니다.'),
 
   new SlashCommandBuilder()
     .setName('혈비')
     .setDescription('혈비 세율 설정')
-    .addIntegerOption(o => o.setName('값').setRequired(true)),
+    .addIntegerOption(o =>
+      o.setName('값')
+       .setDescription('0~100 사이 숫자')
+       .setRequired(true)
+    ),
 
   new SlashCommandBuilder()
     .setName('정산1')
     .setDescription('혈비 적용 정산')
-    .addStringOption(o => o.setName('아이템이름').setRequired(true))
-    .addIntegerOption(o => o.setName('아이템금액').setRequired(true))
-    .addIntegerOption(o => o.setName('패왕인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('스타인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('베스트인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('발록인원수').setRequired(true)),
+    .addStringOption(o =>
+      o.setName('아이템이름').setDescription('아이템 이름').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('아이템금액').setDescription('총 금액').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('패왕인원수').setDescription('패왕 인원').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('스타인원수').setDescription('스타 인원').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('베스트인원수').setDescription('베스트 인원').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('발록인원수').setDescription('발록 인원').setRequired(true)),
 
   new SlashCommandBuilder()
     .setName('정산2')
     .setDescription('혈비 없이 정산')
-    .addStringOption(o => o.setName('아이템이름').setRequired(true))
-    .addIntegerOption(o => o.setName('아이템금액').setRequired(true))
-    .addIntegerOption(o => o.setName('패왕인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('스타인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('베스트인원수').setRequired(true))
-    .addIntegerOption(o => o.setName('발록인원수').setRequired(true))
+    .addStringOption(o =>
+      o.setName('아이템이름').setDescription('아이템 이름').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('아이템금액').setDescription('총 금액').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('패왕인원수').setDescription('패왕 인원').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('스타인원수').setDescription('스타 인원').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('베스트인원수').setDescription('베스트 인원').setRequired(true))
+    .addIntegerOption(o =>
+      o.setName('발록인원수').setDescription('발록 인원').setRequired(true))
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -119,7 +144,6 @@ client.on('interactionCreate', async interaction => {
   if (commandName === '인원') {
     await interaction.deferReply();
 
-    // ✅ 핵심: 캐싱 강제 동기화
     await interaction.guild.members.fetch();
 
     const voiceChannel = interaction.member.voice.channel;
@@ -145,7 +169,6 @@ client.on('interactionCreate', async interaction => {
         else if (extracted.includes('발록')) tag = '발록';
       }
 
-      // ✅ 안전 닉네임 파싱 (완전판)
       let cleanName = rawName.replace(/^\[.*?\]/, '').trim();
 
       if (cleanName.includes('/')) {
