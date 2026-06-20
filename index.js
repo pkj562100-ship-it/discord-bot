@@ -27,9 +27,10 @@ process.on('unhandledRejection', error => console.error('알 수 없는 거부 �
 let bloodTaxRate = 20; 
 let attendanceLog = {};
 
+// 🎨 분류 및 색상 정보 수정 (패왕, 천당, 언니)
 const colors = {
-  '패왕': 0x0000FF, '스타': 0xFFFF00, 'BEST': 0xFFC0CB,
-  '발록': 0xFF0000, '명가': 0x800080, '기타': 0x808080
+  '패왕': 0x0000FF, '천당': 0xFFFF00, '언니': 0xFFC0CB,
+  '명가': 0x800080, '기타': 0x808080
 };
 
 const commands = [
@@ -49,18 +50,16 @@ const commands = [
     .addStringOption(o => o.setName('아이템이름').setDescription('아이템 이름').setRequired(true))
     .addIntegerOption(o => o.setName('아이템금액').setDescription('총 판매 금액').setRequired(true))
     .addIntegerOption(o => o.setName('패왕인원수').setDescription('패왕 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('스타인원수').setDescription('스타 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('베스트인원수').setDescription('베스트 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('발록인원수').setDescription('발록 인원').setRequired(true)),
+    .addIntegerOption(o => o.setName('천당인원수').setDescription('천당 인원').setRequired(true))
+    .addIntegerOption(o => o.setName('언니인원수').setDescription('언니 인원').setRequired(true)),
   new SlashCommandBuilder()
     .setName('정산2')
     .setDescription('혈비 없이 정산')
     .addStringOption(o => o.setName('아이템이름').setDescription('아이템 이름').setRequired(true))
     .addIntegerOption(o => o.setName('아이템금액').setDescription('총 판매 금액').setRequired(true))
     .addIntegerOption(o => o.setName('패왕인원수').setDescription('패왕 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('스타인원수').setDescription('스타 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('베스트인원수').setDescription('베스트 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('발록인원수').setDescription('발록 인원').setRequired(true))
+    .addIntegerOption(o => o.setName('천당인원수').setDescription('천당 인원').setRequired(true))
+    .addIntegerOption(o => o.setName('언니인원수').setDescription('언니 인원').setRequired(true))
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -105,13 +104,13 @@ client.on('interactionCreate', async interaction => {
   if (commandName === '인원') {
     await interaction.deferReply();
 
-    // ❌ interaction.guild.members.fetch() 제거 (속도 제한의 주범)
     const voiceChannel = interaction.member.voice.channel;
     if (!voiceChannel) return interaction.editReply('❌ 음성 채널에 먼저 입장해 주세요.');
 
     try {
       const members = voiceChannel.members.filter(m => !m.user.bot);
-      const groups = { '패왕': [], '스타': [], 'BEST': [], '발록': [], '명가': [], '기타': [] };
+      // 🏷️ 그룹 초기화 수정
+      const groups = { '패왕': [], '천당': [], '언니': [], '명가': [], '기타': [] };
 
       members.forEach(m => {
         const rawName = m.displayName;
@@ -120,11 +119,11 @@ client.on('interactionCreate', async interaction => {
 
         if (tagMatch) {
           let extracted = tagMatch[1].trim().replace(/^\d+\s*/, '');
-          if (extracted === '베스트' || extracted === 'BEST') tag = 'BEST';
-          else if (extracted.includes('패왕')) tag = '패왕';
-          else if (extracted.includes('스타')) tag = '스타';
+          // 🔍 닉네임 태그 판별 로직 수정
+          if (extracted.includes('패왕')) tag = '패왕';
+          else if (extracted.includes('천당')) tag = '천당';
+          else if (extracted.includes('언니')) tag = '언니';
           else if (extracted.includes('명가')) tag = '명가';
-          else if (extracted.includes('발록')) tag = '발록';
         }
 
         let cleanName = rawName.replace(/^\[.*?\]/, '').trim().split('/')[0].trim() || '이름없음';
@@ -141,7 +140,6 @@ client.on('interactionCreate', async interaction => {
         .setDescription(`**총원: ${members.size}명** (데이터 누락 없음)`)
         .setColor(0x5865F2);
 
-      // ✅ 글자 수 제한 해결 로직 (1,000자 단위 분할)
       for (const [tag, list] of Object.entries(groups)) {
         if (!list.length) continue;
         const fullText = list.join(', ');
@@ -149,7 +147,7 @@ client.on('interactionCreate', async interaction => {
 
         chunks.forEach((chunk, i) => {
           embed.addFields({ 
-            name: i === 0 ? `${tag === 'BEST' ? '베스트' : tag} (${list.length}명)` : `${tag} 계속`, 
+            name: i === 0 ? `${tag} (${list.length}명)` : `${tag} 계속`, 
             value: `\`\`\`${chunk}\`\`\`` 
           });
         });
@@ -175,11 +173,12 @@ client.on('interactionCreate', async interaction => {
   if (commandName === '정산1' || commandName === '정산2') {
     const itemName = options.getString('아이템이름');
     const totalAmount = options.getInteger('아이템금액');
+    
+    // 🔢 정산 인원 매핑 수정
     const counts = {
       '패왕': options.getInteger('패왕인원수') || 0,
-      '스타': options.getInteger('스타인원수') || 0,
-      '베스트': options.getInteger('베스트인원수') || 0,
-      '발록': options.getInteger('발록인원수') || 0
+      '천당': options.getInteger('천당인원수') || 0,
+      '언니': options.getInteger('언니인원수') || 0
     };
 
     const totalPeople = Object.values(counts).reduce((a, b) => a + b, 0);
