@@ -70,7 +70,7 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   } catch (e) { console.error('❌ 명령어 등록 오류:', e); }
 })();
 
-client.once('ready', () => {
+client.once('clientready', () => {
   console.log(`✅ 봇 온라인: ${client.user.tag}`);
 
   schedule.scheduleJob('10 23 * * *', async () => {
