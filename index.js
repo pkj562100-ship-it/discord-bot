@@ -27,10 +27,9 @@ process.on('unhandledRejection', error => console.error('알 수 없는 거부 �
 let bloodTaxRate = 20; 
 let attendanceLog = {};
 
-// 🎨 분류 및 색상 정보 수정 (패왕, 천당, 언니)
+// 🎨 분류 및 색상 정보 (명가 삭제, 패왕, 오빠, 천당만 남김)
 const colors = {
-  '패왕': 0x0000FF, '천당': 0xFFFF00, '언니': 0xFFC0CB,
-  '명가': 0x800080, '기타': 0x808080
+  '패왕': 0x0000FF, '오빠': 0xFFC0CB, '천당': 0xFFFF00, '기타': 0x808080
 };
 
 const commands = [
@@ -50,16 +49,16 @@ const commands = [
     .addStringOption(o => o.setName('아이템이름').setDescription('아이템 이름').setRequired(true))
     .addIntegerOption(o => o.setName('아이템금액').setDescription('총 판매 금액').setRequired(true))
     .addIntegerOption(o => o.setName('패왕인원수').setDescription('패왕 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('천당인원수').setDescription('천당 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('언니인원수').setDescription('언니 인원').setRequired(true)),
+    .addIntegerOption(o => o.setName('오빠인원수').setDescription('오빠 인원').setRequired(true))
+    .addIntegerOption(o => o.setName('천당인원수').setDescription('천당 인원').setRequired(true)),
   new SlashCommandBuilder()
     .setName('정산2')
     .setDescription('혈비 없이 정산')
     .addStringOption(o => o.setName('아이템이름').setDescription('아이템 이름').setRequired(true))
     .addIntegerOption(o => o.setName('아이템금액').setDescription('총 판매 금액').setRequired(true))
     .addIntegerOption(o => o.setName('패왕인원수').setDescription('패왕 인원').setRequired(true))
+    .addIntegerOption(o => o.setName('오빠인원수').setDescription('오빠 인원').setRequired(true))
     .addIntegerOption(o => o.setName('천당인원수').setDescription('천당 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('언니인원수').setDescription('언니 인원').setRequired(true))
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -109,8 +108,8 @@ client.on('interactionCreate', async interaction => {
 
     try {
       const members = voiceChannel.members.filter(m => !m.user.bot);
-      // 🏷️ 그룹 초기화 수정
-      const groups = { '패왕': [], '천당': [], '언니': [], '명가': [], '기타': [] };
+      // 🏷️ 그룹 초기화 (명가 제외)
+      const groups = { '패왕': [], '오빠': [], '천당': [], '기타': [] };
 
       members.forEach(m => {
         const rawName = m.displayName;
@@ -119,11 +118,10 @@ client.on('interactionCreate', async interaction => {
 
         if (tagMatch) {
           let extracted = tagMatch[1].trim().replace(/^\d+\s*/, '');
-          // 🔍 닉네임 태그 판별 로직 수정
+          // 🔍 닉네임 태그 판별 (명가 제외)
           if (extracted.includes('패왕')) tag = '패왕';
+          else if (extracted.includes('오빠')) tag = '오빠';
           else if (extracted.includes('천당')) tag = '천당';
-          else if (extracted.includes('언니')) tag = '언니';
-          else if (extracted.includes('명가')) tag = '명가';
         }
 
         let cleanName = rawName.replace(/^\[.*?\]/, '').trim().split('/')[0].trim() || '이름없음';
@@ -174,11 +172,11 @@ client.on('interactionCreate', async interaction => {
     const itemName = options.getString('아이템이름');
     const totalAmount = options.getInteger('아이템금액');
     
-    // 🔢 정산 인원 매핑 수정
+    // 🔢 정산 인원 매핑 (명가 제외)
     const counts = {
       '패왕': options.getInteger('패왕인원수') || 0,
-      '천당': options.getInteger('천당인원수') || 0,
-      '언니': options.getInteger('언니인원수') || 0
+      '오빠': options.getInteger('오빠인원수') || 0,
+      '천당': options.getInteger('천당인원수') || 0
     };
 
     const totalPeople = Object.values(counts).reduce((a, b) => a + b, 0);
