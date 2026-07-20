@@ -1,11 +1,9 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const schedule = require('node-schedule');
 
 const TOKEN = process.env.TOKEN;
 const APPLICATION_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
-const REPORT_CHANNEL_ID = '1487735750245220482';
 
 if (!TOKEN || !APPLICATION_ID || !GUILD_ID) {
   console.log('❌ .env 설정 확인 필요 (TOKEN, CLIENT_ID, GUILD_ID)');
@@ -20,45 +18,16 @@ const client = new Client({
   ],
 });
 
-// ✅ 봇이 에러로 인해 종료되는 것을 방지하는 핸들러
-client.on('error', error => console.error('디스코드 클라이언트 에러:', error));
-process.on('unhandledRejection', error => console.error('알 수 없는 거부 오류:', error));
-
-let bloodTaxRate = 20; 
-let attendanceLog = {};
-
-// 🎨 분류 및 색상 정보 (명가 삭제, 패왕, 오빠, 천당만 남김)
-const colors = {
-  '패왕': 0x0000FF, '오빠': 0xFFC0CB, '천당': 0xFFFF00, '기타': 0x808080
-};
-
+// ✅ 명령어 등록 ('/인원' 단일 명령어만 남김)
 const commands = [
   new SlashCommandBuilder()
     .setName('인원')
-    .setDescription('현재 채널 인원 체크 (대규모 인원 대응)')
-    .addStringOption(o => o.setName('타임명').setDescription('예: 19시 타임')),
-  new SlashCommandBuilder().setName('통계').setDescription('오늘의 누적 통계를 확인합니다.'),
-  new SlashCommandBuilder().setName('통계초기화').setDescription('데이터를 초기화합니다.'),
-  new SlashCommandBuilder()
-    .setName('혈비')
-    .setDescription('혈비 세율 설정 (기본 20%)')
-    .addIntegerOption(o => o.setName('값').setDescription('0~100 사이 숫자').setRequired(true)),
-  new SlashCommandBuilder()
-    .setName('정산1')
-    .setDescription('혈비 적용 정산')
-    .addStringOption(o => o.setName('아이템이름').setDescription('아이템 이름').setRequired(true))
-    .addIntegerOption(o => o.setName('아이템금액').setDescription('총 판매 금액').setRequired(true))
-    .addIntegerOption(o => o.setName('패왕인원수').setDescription('패왕 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('오빠인원수').setDescription('오빠 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('천당인원수').setDescription('천당 인원').setRequired(true)),
-  new SlashCommandBuilder()
-    .setName('정산2')
-    .setDescription('혈비 없이 정산')
-    .addStringOption(o => o.setName('아이템이름').setDescription('아이템 이름').setRequired(true))
-    .addIntegerOption(o => o.setName('아이템금액').setDescription('총 판매 금액').setRequired(true))
-    .addIntegerOption(o => o.setName('패왕인원수').setDescription('패왕 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('오빠인원수').setDescription('오빠 인원').setRequired(true))
-    .addIntegerOption(o => o.setName('천당인원수').setDescription('천당 인원').setRequired(true))
+    .setDescription('현재 음성 채널 인원 체크 (패왕 전용)')
+    .addStringOption(o => 
+      o.setName('타임명')
+       .setDescription('예: 19시 타임')
+       .setRequired(false)
+    )
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(TOKEN);
@@ -67,143 +36,71 @@ const rest = new REST({ version: '10' }).setToken(TOKEN);
   try {
     await rest.put(Routes.applicationGuildCommands(APPLICATION_ID, GUILD_ID), { body: commands });
     console.log('✅ 명령어 동기화 완료');
-  } catch (e) { console.error('❌ 명령어 등록 오류:', e); }
+  } catch (e) {
+    console.error('❌ 명령어 등록 오류:', e);
+  }
 })();
 
-client.once('clientready', () => {
+client.once('ready', () => {
   console.log(`✅ 봇 온라인: ${client.user.tag}`);
-
-  schedule.scheduleJob('10 23 * * *', async () => {
-    const channel = client.channels.cache.get(REPORT_CHANNEL_ID);
-    if (!channel || Object.keys(attendanceLog).length === 0) return;
-
-    const statsEmbed = new EmbedBuilder().setTitle('📊 오늘 최종 누적 통계').setColor(0xFFAA00).setTimestamp();
-    
-    for (const tag of Object.keys(colors)) {
-      const users = Object.values(attendanceLog).filter(u => u.tag === tag);
-      if (!users.length) continue;
-      
-      const listText = users.sort((a, b) => b.count - a.count).map(u => `**${u.name}**: ${u.count}회`).join('\n');
-      const chunks = listText.match(/[\s\S]{1,1024}(\n|$)/g) || [listText];
-      
-      chunks.forEach((chunk, i) => {
-        statsEmbed.addFields({ name: i === 0 ? `[${tag}]` : `[${tag} 계속]`, value: chunk });
-      });
-    }
-    channel.send({ content: '🔔 정기 보고', embeds: [statsEmbed] });
-  });
-
-  schedule.scheduleJob('0 0 * * *', () => { attendanceLog = {}; });
 });
 
 client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
+
   const { commandName, options } = interaction;
 
   if (commandName === '인원') {
     await interaction.deferReply();
+    await interaction.guild.members.fetch();
 
     const voiceChannel = interaction.member.voice.channel;
-    if (!voiceChannel) return interaction.editReply('❌ 음성 채널에 먼저 입장해 주세요.');
+    if (!voiceChannel) return interaction.editReply('❌ 음성 채널에 입장해 주세요.');
 
-    try {
-      const members = voiceChannel.members.filter(m => !m.user.bot);
-      // 🏷️ 그룹 초기화 (명가 제외)
-      const groups = { '패왕': [], '오빠': [], '천당': [], '기타': [] };
-
-      members.forEach(m => {
-        const rawName = m.displayName;
-        const tagMatch = rawName.match(/^\[(.*?)\]/);
-        let tag = '기타';
-
-        if (tagMatch) {
-          let extracted = tagMatch[1].trim().replace(/^\d+\s*/, '');
-          // 🔍 닉네임 태그 판별 (명가 제외)
-          if (extracted.includes('패왕')) tag = '패왕';
-          else if (extracted.includes('오빠')) tag = '오빠';
-          else if (extracted.includes('천당')) tag = '천당';
-        }
-
-        let cleanName = rawName.replace(/^\[.*?\]/, '').trim().split('/')[0].trim() || '이름없음';
-        
-        if (!attendanceLog[m.id]) attendanceLog[m.id] = { name: cleanName, tag, count: 0 };
-        attendanceLog[m.id].count += 1;
-        attendanceLog[m.id].name = cleanName;
-        attendanceLog[m.id].tag = tag;
-        groups[tag].push(cleanName);
-      });
-
-      const embed = new EmbedBuilder()
-        .setTitle(`📢 ${options.getString('타임명') || '실시간 인원 체크'}`)
-        .setDescription(`**총원: ${members.size}명** (데이터 누락 없음)`)
-        .setColor(0x5865F2);
-
-      for (const [tag, list] of Object.entries(groups)) {
-        if (!list.length) continue;
-        const fullText = list.join(', ');
-        const chunks = fullText.match(/.{1,1000}(, |$)/g) || [fullText];
-
-        chunks.forEach((chunk, i) => {
-          embed.addFields({ 
-            name: i === 0 ? `${tag} (${list.length}명)` : `${tag} 계속`, 
-            value: `\`\`\`${chunk}\`\`\`` 
-          });
-        });
-      }
-      await interaction.editReply({ embeds: [embed] });
-    } catch (err) {
-      console.error(err);
-      await interaction.editReply('❌ 인원 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
-    }
-  }
-
-  // 통계 관련 명령어
-  if (commandName === '통계') return interaction.reply({ content: '📊 23:10에 자동 보고됩니다.', ephemeral: true });
-  if (commandName === '통계초기화') { attendanceLog = {}; return interaction.reply('🗑️ 모든 데이터가 초기화되었습니다.'); }
-  if (commandName === '혈비') {
-    const val = options.getInteger('값');
-    if (val < 0 || val > 100) return interaction.reply('❌ 0~100 사이 숫자만 가능합니다.');
-    bloodTaxRate = val;
-    return interaction.reply(`✅ 혈비 세율이 **${val}%**로 설정되었습니다.`);
-  }
-
-  // 정산 명령어 (정산1, 정산2)
-  if (commandName === '정산1' || commandName === '정산2') {
-    const itemName = options.getString('아이템이름');
-    const totalAmount = options.getInteger('아이템금액');
+    const members = voiceChannel.members.filter(m => !m.user.bot);
     
-    // 🔢 정산 인원 매핑 (명가 제외)
-    const counts = {
-      '패왕': options.getInteger('패왕인원수') || 0,
-      '오빠': options.getInteger('오빠인원수') || 0,
-      '천당': options.getInteger('천당인원수') || 0
-    };
+    const pwMembers = [];   // 패왕 인원 목록
+    const otherMembers = []; // 기타 인원 목록
 
-    const totalPeople = Object.values(counts).reduce((a, b) => a + b, 0);
-    if (totalPeople === 0) return interaction.reply('❌ 인원은 최소 1명 이상이어야 합니다.');
+    members.forEach(m => {
+      const rawName = m.displayName;
+      const tagMatch = rawName.match(/^\[(.*?)\]/);
+      
+      let cleanName = rawName.replace(/^\[.*?\]/, '').trim();
+      if (cleanName.includes('/')) {
+        cleanName = cleanName.split('/')[0].trim() || '이름없음';
+      }
 
-    const currentTax = commandName === '정산1' ? Math.floor(totalAmount * (bloodTaxRate / 100)) : 0;
-    const distributableAmount = totalAmount - currentTax;
-    const perPerson = Math.floor(distributableAmount / totalPeople);
+      // [패왕] 태그 포함 여부 확인
+      if (tagMatch && tagMatch[1].includes('패왕')) {
+        pwMembers.push(cleanName);
+      } else {
+        otherMembers.push(cleanName);
+      }
+    });
 
     const embed = new EmbedBuilder()
-      .setTitle(`💰 정산 결과 (${commandName === '정산1' ? '혈비 적용' : 'N빵'})`)
-      .setColor(commandName === '정산1' ? 0xFF0000 : 0x00FF00)
-      .addFields(
-        { name: '📦 아이템명', value: itemName, inline: true },
-        { name: '💎 총 금액', value: `${totalAmount.toLocaleString()} 💎`, inline: true },
-        { name: '👥 총 인원', value: `${totalPeople} 명`, inline: true }
-      );
+      .setTitle(`📢 ${options.getString('타임명') || '실시간 인원 체크'}`)
+      .setDescription(`**총원: ${members.size}명** (패왕: ${pwMembers.length}명)`)
+      .setColor(0x0000FF); // 패왕 전용 파란색
 
-    if (commandName === '정산1') {
-      embed.addFields(
-        { name: `📑 혈비 (${bloodTaxRate}%)`, value: `${currentTax.toLocaleString()} 💎`, inline: true },
-        { name: '🎁 분배 대상 금액', value: `${distributableAmount.toLocaleString()} 💎`, inline: true }
-      );
+    // 패왕 목록 출력
+    if (pwMembers.length > 0) {
+      embed.addFields({
+        name: `👑 패왕 (${pwMembers.length}명)`,
+        value: `\`\`\`${pwMembers.join(', ')}\`\`\``
+      });
     }
 
-    embed.addFields({ name: '💵 1인당 분배금', value: `**${perPerson.toLocaleString()}** 💎` });
-    return interaction.reply({ embeds: [embed] });
+    // 기타 인원 목록 출력 (필요 시)
+    if (otherMembers.length > 0) {
+      embed.addFields({
+        name: `👤 기타 인원 (${otherMembers.length}명)`,
+        value: `\`\`\`${otherMembers.join(', ')}\`\`\``
+      });
+    }
+
+    await interaction.editReply({ embeds: [embed] });
   }
 });
 
