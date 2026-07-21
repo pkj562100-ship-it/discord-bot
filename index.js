@@ -18,11 +18,11 @@ const client = new Client({
   ],
 });
 
-// ✅ 명령어 등록 ('/인원' 단일 명령어만 남김)
+// ✅ 명령어 등록
 const commands = [
   new SlashCommandBuilder()
     .setName('인원')
-    .setDescription('현재 음성 채널 인원 체크 (패왕 전용)')
+    .setDescription('현재 음성 채널 인원 체크 (패왕, 대장, 킹덤 역할 분류)')
     .addStringOption(o => 
       o.setName('타임명')
        .setDescription('예: 19시 타임')
@@ -59,44 +59,67 @@ client.on('interactionCreate', async interaction => {
 
     const members = voiceChannel.members.filter(m => !m.user.bot);
     
-    const pwMembers = [];   // 패왕 인원 목록
-    const otherMembers = []; // 기타 인원 목록
+    const groups = {
+      '패왕': [],
+      '대장': [],
+      '킹덤': [],
+      '기타': []
+    };
 
     members.forEach(m => {
-      const rawName = m.displayName;
-      const tagMatch = rawName.match(/^\[(.*?)\]/);
-      
-      let cleanName = rawName.replace(/^\[.*?\]/, '').trim();
+      // 닉네임에서 [대장], [관리자] 등의 대괄호 태그 및 슬래시(/) 뒤 부캐명 정리
+      let cleanName = m.displayName.replace(/^\[.*?\]/, '').trim();
       if (cleanName.includes('/')) {
-        cleanName = cleanName.split('/')[0].trim() || '이름없음';
+        cleanName = cleanName.split('/')[0].trim() || m.displayName;
       }
 
-      // [패왕] 태그 포함 여부 확인
-      if (tagMatch && tagMatch[1].includes('패왕')) {
-        pwMembers.push(cleanName);
+      // 유저가 보유한 역할(Role) 이름 목록
+      const roleNames = m.roles.cache.map(role => role.name);
+
+      // 역할 체크 (우선순위: 패왕 > 대장 > 킹덤)
+      if (roleNames.some(name => name.includes('패왕'))) {
+        groups['패왕'].push(cleanName);
+      } else if (roleNames.some(name => name.includes('대장'))) {
+        groups['대장'].push(cleanName);
+      } else if (roleNames.some(name => name.includes('킹덤'))) {
+        groups['킹덤'].push(cleanName);
       } else {
-        otherMembers.push(cleanName);
+        // 관리자만 있거나 세 주요 역할이 없는 경우 '기타'로 분류
+        groups['기타'].push(cleanName);
       }
     });
 
     const embed = new EmbedBuilder()
       .setTitle(`📢 ${options.getString('타임명') || '실시간 인원 체크'}`)
-      .setDescription(`**총원: ${members.size}명** (패왕: ${pwMembers.length}명)`)
-      .setColor(0x0000FF); // 패왕 전용 파란색
+      .setDescription(`**총원: ${members.size}명**`)
+      .setColor(0x5865F2);
 
-    // 패왕 목록 출력
-    if (pwMembers.length > 0) {
+    // 각 역할 그룹별 인원 출력 (패왕을 최상단으로 배치)
+    if (groups['패왕'].length > 0) {
       embed.addFields({
-        name: `👑 패왕 (${pwMembers.length}명)`,
-        value: `\`\`\`${pwMembers.join(', ')}\`\`\``
+        name: `⚔️ 패왕 (${groups['패왕'].length}명)`,
+        value: `\`\`\`${groups['패왕'].join(', ')}\`\`\``
       });
     }
 
-    // 기타 인원 목록 출력 (필요 시)
-    if (otherMembers.length > 0) {
+    if (groups['대장'].length > 0) {
       embed.addFields({
-        name: `👤 기타 인원 (${otherMembers.length}명)`,
-        value: `\`\`\`${otherMembers.join(', ')}\`\`\``
+        name: `👑 대장 (${groups['대장'].length}명)`,
+        value: `\`\`\`${groups['대장'].join(', ')}\`\`\``
+      });
+    }
+
+    if (groups['킹덤'].length > 0) {
+      embed.addFields({
+        name: `🏰 킹덤 (${groups['킹덤'].length}명)`,
+        value: `\`\`\`${groups['킹덤'].join(', ')}\`\`\``
+      });
+    }
+
+    if (groups['기타'].length > 0) {
+      embed.addFields({
+        name: `👤 기타 인원 (${groups['기타'].length}명)`,
+        value: `\`\`\`${groups['기타'].join(', ')}\`\`\``
       });
     }
 
