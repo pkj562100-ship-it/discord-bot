@@ -5,10 +5,11 @@ const {
   REST,
   Routes,
   SlashCommandBuilder,
-  EmbedBuilder
+  EmbedBuilder,
+  MessageFlags // 👈 최신 ephemeral 처리를 위해 추가
 } = require('discord.js');
 
-// 1. 환경변수 안전 추출 및 정제
+// 환경변수 안전 추출
 const TOKEN = (process.env.TOKEN || "").trim();
 const CLIENT_ID = (process.env.CLIENT_ID || "").trim();
 const GUILD_ID = (process.env.GUILD_ID || "").trim();
@@ -32,9 +33,6 @@ const client = new Client({
     GatewayIntentBits.GuildMembers
   ]
 });
-
-// 리니지 클래식 4대 직업 정의
-const CLASSIC_JOBS = ["기사", "요정", "마법사", "군주"];
 
 // 자동 갱신 상태 변수
 let autoUpdateInterval = null;
@@ -68,20 +66,16 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
  * 리니지 클래식 닉네임 분석 및 그룹/직업 추출 함수
  */
 function parseMemberDetails(member) {
-  const raw = member.displayName; // 디스코드 표시 닉네임
+  const raw = member.displayName;
 
-  // 1. 대괄호 안의 혈맹 태그 추출 (예: "[패왕G]" -> "패왕G")
   const tagMatch = raw.match(/^\[(.*?)\]/);
   const clanTag = tagMatch ? tagMatch[1] : "";
 
-  // 2. 대괄호 [혈맹] 태그 제거 후 나머지 텍스트 파싱
   const withoutClan = raw.replace(/^\[.*?\]\s*/, "");
   const parts = withoutClan.split("/").map(p => p.trim());
 
-  // 소괄호(구 닉네임)를 포함한 순수 이름
   const cleanName = parts[0] || raw;
 
-  // 3. 직업 파싱
   let detectedJob = "기타";
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i];
@@ -100,7 +94,6 @@ function parseMemberDetails(member) {
     }
   }
 
-  // 4. 닉네임 태그에 기반한 그룹 판별
   let group = "미확인";
   if (clanTag.includes("패왕")) {
     group = "패왕";
@@ -182,11 +175,11 @@ client.on("interactionCreate", async interaction => {
   // 1. /보탐시작
   if (commandName === "보탐시작") {
     if (!voiceChannel) {
-      return interaction.reply({ content: "❌ 먼저 음성 채널에 입장해 주세요.", ephemeral: true });
+      return interaction.reply({ content: "❌ 먼저 음성 채널에 입장해 주세요.", flags: [MessageFlags.Ephemeral] });
     }
 
     if (autoUpdateInterval) {
-      return interaction.reply({ content: "⚠️ 이미 보탐 자동 갱신이 진행 중입니다. `/보탐종료` 후 다시 실행해 주세요.", ephemeral: true });
+      return interaction.reply({ content: "⚠️ 이미 보탐 자동 갱신이 진행 중입니다. `/보탐종료` 후 다시 실행해 주세요.", flags: [MessageFlags.Ephemeral] });
     }
 
     const timeName = interaction.options.getString("타임명") || "실시간 보탐 현황";
@@ -195,7 +188,9 @@ client.on("interactionCreate", async interaction => {
     const parsedData = parseVoiceMembers(voiceChannel);
     const embed = buildEmbed(timeName, parsedData);
 
-    statusMessage = await interaction.reply({ embeds: [embed], fetchReply: true });
+    // [수정] withResponse: true 적용 (경고 해결)
+    const response = await interaction.reply({ embeds: [embed], withResponse: true });
+    statusMessage = response.resource ? response.resource.message : await interaction.fetchReply();
 
     // 10초 주기 자동 갱신
     autoUpdateInterval = setInterval(async () => {
@@ -217,7 +212,7 @@ client.on("interactionCreate", async interaction => {
   // 2. /보탐종료
   if (commandName === "보탐종료") {
     if (!autoUpdateInterval) {
-      return interaction.reply({ content: "❌ 진행 중인 자동 갱신이 없습니다.", ephemeral: true });
+      return interaction.reply({ content: "❌ 진행 중인 자동 갱신이 없습니다.", flags: [MessageFlags.Ephemeral] });
     }
 
     clearInterval(autoUpdateInterval);
@@ -231,7 +226,7 @@ client.on("interactionCreate", async interaction => {
   // 3. /인원
   if (commandName === "인원") {
     if (!voiceChannel) {
-      return interaction.reply({ content: "❌ 먼저 음성 채널에 입장해 주세요.", ephemeral: true });
+      return interaction.reply({ content: "❌ 먼저 음성 채널에 입장해 주세요.", flags: [MessageFlags.Ephemeral] });
     }
 
     const timeName = interaction.options.getString("타임명") || "실시간 인원 체크";
@@ -244,7 +239,7 @@ client.on("interactionCreate", async interaction => {
   // 4. /직업
   if (commandName === "직업") {
     if (!voiceChannel) {
-      return interaction.reply({ content: "❌ 먼저 음성 채널에 입장해 주세요.", ephemeral: true });
+      return interaction.reply({ content: "❌ 먼저 음성 채널에 입장해 주세요.", flags: [MessageFlags.Ephemeral] });
     }
 
     const parsedData = parseVoiceMembers(voiceChannel);
@@ -292,14 +287,14 @@ client.on("interactionCreate", async interaction => {
   // 5. /닉확인
   if (commandName === "닉확인") {
     if (!voiceChannel) {
-      return interaction.reply({ content: "❌ 먼저 음성 채널에 입장해 주세요.", ephemeral: true });
+      return interaction.reply({ content: "❌ 먼저 음성 채널에 입장해 주세요.", flags: [MessageFlags.Ephemeral] });
     }
 
     const parsedData = parseVoiceMembers(voiceChannel);
     const unverified = parsedData.groups.미확인;
 
     if (!unverified.length) {
-      return interaction.reply({ content: "✅ 대괄호 태그가 없거나 닉네임 양식이 잘못된 인원이 없습니다!", ephemeral: true });
+      return interaction.reply({ content: "✅ 대괄호 태그가 없거나 닉네임 양식이 잘못된 인원이 없습니다!", flags: [MessageFlags.Ephemeral] });
     }
 
     const names = unverified.map(m => m.raw).join("\n");
@@ -318,19 +313,16 @@ client.on("error", console.error);
 process.on("unhandledRejection", console.error);
 process.on("uncaughtException", console.error);
 
-// 2. [핵심 수정] 명령어 등록 완료 후 봇 로그인 진행 (비동기 동기화)
 async function startBot() {
   try {
     console.log("⏳ 슬래시 명령어 서버 즉시 등록 시도 중...");
     
-    // 특정 Guild(서버)에 즉시 등록
     await rest.put(
       Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commands }
     );
     console.log("✅ 슬래시 명령어 서버 즉시 등록 완료!");
 
-    // 명령어 등록 성공 확인 후 봇 로그인 실행
     await client.login(TOKEN);
   } catch (error) {
     console.error("❌ 초기화 및 로그인 중 오류 발생:", error);
