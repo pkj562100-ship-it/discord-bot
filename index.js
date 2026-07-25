@@ -61,7 +61,7 @@ const commands = [
     .setDescription("닉네임 양식이 잘못되었거나 대괄호 태그가 없는 인원을 확인합니다.")
 ].map(command => command.toJSON());
 
-// [구조 수정] 여기서 한 번만 명확하게 토큰을 주입합니다.
+// REST 인스턴스 초기화 및 토큰 설정
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 /**
@@ -163,14 +163,7 @@ function buildEmbed(timeName, parsedData) {
   return embed;
 }
 
-// [버그 수정] 디스코드 정상 로그인 완료 이벤트 명칭은 'ready' 입니다.
-client.once("ready", () => {
-  console.log(`✅ 디스코드 봇 로그인 완료 : ${client.user.tag}`);
-});
-
-// ==========================================
-// 인터랙션 (슬래시 명령어) 처리 시작
-// ==========================================
+// 인터랙션 (슬래시 명령어) 처리
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -193,7 +186,6 @@ client.on("interactionCreate", async interaction => {
     const parsedData = parseVoiceMembers(voiceChannel);
     const embed = buildEmbed(timeName, parsedData);
 
-    // [수정] withResponse: true 적용 (경고 해결)
     const response = await interaction.reply({ embeds: [embed], withResponse: true });
     statusMessage = response.resource ? response.resource.message : await interaction.fetchReply();
 
@@ -314,16 +306,24 @@ client.on("interactionCreate", async interaction => {
   }
 });
 
-// 에러 핸들러 설정
+// 전역 에러 핸들러 설정
 client.on("error", console.error);
 process.on("unhandledRejection", console.error);
 process.on("uncaughtException", console.error);
 
+// [최신 규격 반영] discord.js v14.17+ 스펙에 맞춰 clientReady 이벤트 감지
+client.once("clientReady", () => {
+  console.log(`✅ 디스코드 봇 로그인 완료 : ${client.user.tag}`);
+});
+
 // 봇 초기화 및 서버 명령어 즉시 등록 함수
 async function startBot() {
   try {
-    // [버그 수정] REST 인스턴스에 토큰을 설정해야 401 Unauthorized 에러가 해결됩니다.
-    rest.setToken(TOKEN);
+    if (!TOKEN || TOKEN.length < 10) {
+      console.error("❌ 오류: 유효한 TOKEN 값이 설정되지 않았습니다. 프로세스를 일시 중지합니다.");
+      await new Promise(() => {}); // 무한 재시작 방지용 무한 대기
+      return;
+    }
 
     console.log("⏳ 슬래시 명령어 서버 즉시 등록 시도 중...");
     
@@ -338,6 +338,10 @@ async function startBot() {
     await client.login(TOKEN);
   } catch (error) {
     console.error("❌ 초기화 및 로그인 중 오류 발생:", error);
+    
+    // [보안 장치] 401 오류 등으로 실패했을 때 Render가 수초 만에 무한 재시작하여 디스코드가 토큰을 강제 파괴하는 것 방지
+    console.log("⚠️ 안전 조치: 무한 재시작 루프를 방지하기 위해 1시간 동안 대기를 시작합니다.");
+    await new Promise(resolve => setTimeout(resolve, 3600000));
   }
 }
 
