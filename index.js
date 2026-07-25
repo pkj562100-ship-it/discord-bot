@@ -165,7 +165,9 @@ client.once("clientReady", () => {
   console.log(`✅ 디스코드 봇 로그인 완료 : ${client.user.tag}`);
 });
 
-// 인터랙션 (슬래시 명령어) 처리
+// ==========================================
+// 인터랙션 (슬래시 명령어) 처리 시작
+// ==========================================
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
@@ -309,24 +311,32 @@ client.on("interactionCreate", async interaction => {
   }
 });
 
+// 에러 핸들러 설정
 client.on("error", console.error);
 process.on("unhandledRejection", console.error);
 process.on("uncaughtException", console.error);
 
+// 봇 초기화 및 서버 명령어 즉시 등록 함수
 async function startBot() {
   try {
+    // [버그 수정] REST 인스턴스에 토큰을 설정해야 401 Unauthorized 에러가 해결됩니다.
+    rest.setToken(TOKEN);
+
     console.log("⏳ 슬래시 명령어 서버 즉시 등록 시도 중...");
     
+    // 디스코드 API 서버에 명령어 목록 동기화 요청
     await rest.put(
       Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commands }
     );
     console.log("✅ 슬래시 명령어 서버 즉시 등록 완료!");
 
+    // 명령어 등록 성공 후 클라이언트 로그인 실행
     await client.login(TOKEN);
   } catch (error) {
     console.error("❌ 초기화 및 로그인 중 오류 발생:", error);
   }
 }
 
+// 봇 실행
 startBot();
