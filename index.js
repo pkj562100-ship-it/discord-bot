@@ -8,12 +8,20 @@ const {
   EmbedBuilder
 } = require('discord.js');
 
-const TOKEN = process.env.TOKEN;
-const CLIENT_ID = process.env.CLIENT_ID;
-const GUILD_ID = process.env.GUILD_ID;
+// 1. 환경변수 안전 추출 및 정제
+const TOKEN = (process.env.TOKEN || "").trim();
+const CLIENT_ID = (process.env.CLIENT_ID || "").trim();
+const GUILD_ID = (process.env.GUILD_ID || "").trim();
+
+console.log("====================================");
+console.log("--- [환경변수 검증 로그] ---");
+console.log("CLIENT_ID :", CLIENT_ID);
+console.log("GUILD_ID  :", GUILD_ID);
+console.log("TOKEN 길이:", TOKEN.length);
+console.log("====================================");
 
 if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
-  console.error("❌ TOKEN / CLIENT_ID / GUILD_ID 환경변수를 확인하세요.");
+  console.error("❌ 오류: TOKEN, CLIENT_ID, GUILD_ID 환경 변수가 올바르게 설정되지 않았습니다.");
   process.exit(1);
 }
 
@@ -33,7 +41,7 @@ let autoUpdateInterval = null;
 let activeVoiceChannelId = null;
 let statusMessage = null;
 
-// 명령어 등록
+// 슬래시 명령어 정의
 const commands = [
   new SlashCommandBuilder()
     .setName("보탐시작")
@@ -56,21 +64,8 @@ const commands = [
 
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-(async () => {
-  try {
-    await rest.put(
-      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
-      { body: commands }
-    );
-    console.log("✅ 슬래시 명령어 등록 완료");
-  } catch (err) {
-    console.error("❌ 명령어 등록 실패:", err);
-  }
-})();
-
 /**
  * 리니지 클래식 닉네임 분석 및 그룹/직업 추출 함수
- * 예시: [패왕G]홍길동(구길동)/30/기사, [대장7]이순신/법사/28
  */
 function parseMemberDetails(member) {
   const raw = member.displayName; // 디스코드 표시 닉네임
@@ -105,7 +100,7 @@ function parseMemberDetails(member) {
     }
   }
 
-  // 4. 닉네임 태그에 기반한 그룹 판별 (디스코드 역할 X)
+  // 4. 닉네임 태그에 기반한 그룹 판별
   let group = "미확인";
   if (clanTag.includes("패왕")) {
     group = "패왕";
@@ -136,7 +131,6 @@ function parseVoiceMembers(voiceChannel) {
 
   for (const member of members) {
     const parsed = parseMemberDetails(member);
-    // 닉네임에서 판별된 그룹으로 분류
     if (groups[parsed.group]) {
       groups[parsed.group].push(parsed);
     } else {
@@ -175,14 +169,15 @@ function buildEmbed(timeName, parsedData) {
 }
 
 client.once("clientReady", () => {
-  console.log(`✅ 로그인 완료 : ${client.user.tag}`);
+  console.log(`✅ 디스코드 봇 로그인 완료 : ${client.user.tag}`);
 });
 
+// 인터랙션 (슬래시 명령어) 처리
 client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName, member } = interaction;
-  const voiceChannel = member.voice.channel;
+  const voiceChannel = member.voice ? member.voice.channel : null;
 
   // 1. /보탐시작
   if (commandName === "보탐시작") {
@@ -323,4 +318,23 @@ client.on("error", console.error);
 process.on("unhandledRejection", console.error);
 process.on("uncaughtException", console.error);
 
-client.login(TOKEN);
+// 2. [핵심 수정] 명령어 등록 완료 후 봇 로그인 진행 (비동기 동기화)
+async function startBot() {
+  try {
+    console.log("⏳ 슬래시 명령어 서버 즉시 등록 시도 중...");
+    
+    // 특정 Guild(서버)에 즉시 등록
+    await rest.put(
+      Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+      { body: commands }
+    );
+    console.log("✅ 슬래시 명령어 서버 즉시 등록 완료!");
+
+    // 명령어 등록 성공 확인 후 봇 로그인 실행
+    await client.login(TOKEN);
+  } catch (error) {
+    console.error("❌ 초기화 및 로그인 중 오류 발생:", error);
+  }
+}
+
+startBot();
