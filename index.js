@@ -6,7 +6,7 @@ const {
   Routes,
   SlashCommandBuilder,
   EmbedBuilder,
-  MessageFlags // 👈 최신 ephemeral 처리를 위해 추가
+  MessageFlags
 } = require('discord.js');
 
 // 환경변수 안전 추출
@@ -26,6 +26,7 @@ if (!TOKEN || !CLIENT_ID || !GUILD_ID) {
   process.exit(1);
 }
 
+// 봇 클라이언트 생성 (인텐트 설정)
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -60,6 +61,7 @@ const commands = [
     .setDescription("닉네임 양식이 잘못되었거나 대괄호 태그가 없는 인원을 확인합니다.")
 ].map(command => command.toJSON());
 
+// [구조 수정] 여기서 한 번만 명확하게 토큰을 주입합니다.
 const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 /**
@@ -161,7 +163,8 @@ function buildEmbed(timeName, parsedData) {
   return embed;
 }
 
-client.once("clientReady", () => {
+// [버그 수정] 디스코드 정상 로그인 완료 이벤트 명칭은 'ready' 입니다.
+client.once("ready", () => {
   console.log(`✅ 디스코드 봇 로그인 완료 : ${client.user.tag}`);
 });
 
