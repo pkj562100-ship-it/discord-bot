@@ -5,11 +5,19 @@ const TOKEN = process.env.TOKEN;
 const APPLICATION_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
+// ===== 추가 (디버깅용) =====
+console.log("========== ENV CHECK ==========");
+console.log("TOKEN 존재:", !!TOKEN);
+console.log("TOKEN 길이:", TOKEN ? TOKEN.length : 0);
+console.log("CLIENT_ID:", APPLICATION_ID);
+console.log("GUILD_ID:", GUILD_ID);
+console.log("===============================");
+// =============================
+
 if (!TOKEN || !APPLICATION_ID || !GUILD_ID) {
   console.log('❌ .env 설정 확인 필요 (TOKEN, CLIENT_ID, GUILD_ID)');
   process.exit(1);
 }
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
