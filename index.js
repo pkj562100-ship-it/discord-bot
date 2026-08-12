@@ -192,6 +192,15 @@ client.on("interactionCreate", async interaction => {
     // 10초 주기 자동 갱신
     autoUpdateInterval = setInterval(async () => {
       try {
+        // [안전 예외 처리] 등록된 채널 ID가 없으면 API 호출을 멈추고 타이머를 정리
+        if (!activeVoiceChannelId) {
+          if (autoUpdateInterval) {
+            clearInterval(autoUpdateInterval);
+            autoUpdateInterval = null;
+          }
+          return;
+        }
+
         const currentVoiceChannel = await client.channels.fetch(activeVoiceChannelId);
         if (currentVoiceChannel && statusMessage) {
           const updatedData = parseVoiceMembers(currentVoiceChannel);
