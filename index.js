@@ -1,3 +1,10 @@
+네, 출력 순서를 변경하여 **'킹덤'이 '킹덤수호'보다 먼저 출력되도록** 처리할 수 있습니다.
+
+단, 태그를 판별할 때(`parseMemberDetails`)는 이전과 동일하게 **'킹덤수호'를 먼저 검사**해야 `[킹덤수호]` 닉네임이 `[킹덤]`으로 잘못 분류되는 것을 방지할 수 있습니다.
+
+출력 부분(`buildEmbed` 및 `/직업` 명령어)에서 **'킹덤' → '킹덤수호' 순서로 표시**되도록 조정한 수정 코드입니다.
+
+```javascript
 require('dotenv').config();
 const {
   Client,
@@ -97,10 +104,13 @@ function parseMemberDetails(member) {
   }
 
   let group = "미확인";
+  // 조건문 순서: '킹덤수호'가 더 긴 문자열이므로 '킹덤'보다 먼저 매칭해야 정확히 구분됩니다.
   if (clanTag.includes("패왕")) {
     group = "패왕";
   } else if (clanTag.includes("대장")) {
     group = "대장";
+  } else if (clanTag.includes("킹덤수호")) {
+    group = "킹덤수호";
   } else if (clanTag.includes("킹덤")) {
     group = "킹덤";
   }
@@ -121,6 +131,7 @@ function parseVoiceMembers(voiceChannel) {
     패왕: [],
     대장: [],
     킹덤: [],
+    킹덤수호: [],
     미확인: []
   };
 
@@ -155,9 +166,11 @@ function buildEmbed(timeName, parsedData) {
     });
   };
 
+  // 출력 순서: 패왕 -> 대장 -> 킹덤 -> 킹덤수호 -> 미확인
   addField("패왕", "⚔️", groups.패왕);
   addField("대장", "👑", groups.대장);
   addField("킹덤", "🏰", groups.킹덤);
+  addField("킹덤수호", "🛡️", groups.킹덤수호);
   addField("닉네임 확인 필요", "❗", groups.미확인);
 
   return embed;
@@ -192,7 +205,6 @@ client.on("interactionCreate", async interaction => {
     // 10초 주기 자동 갱신
     autoUpdateInterval = setInterval(async () => {
       try {
-        // [안전 예외 처리] 등록된 채널 ID가 없으면 API 호출을 멈추고 타이머를 정리
         if (!activeVoiceChannelId) {
           if (autoUpdateInterval) {
             clearInterval(autoUpdateInterval);
@@ -253,6 +265,7 @@ client.on("interactionCreate", async interaction => {
       ...parsedData.groups.패왕,
       ...parsedData.groups.대장,
       ...parsedData.groups.킹덤,
+      ...parsedData.groups.킹덤수호,
       ...parsedData.groups.미확인
     ];
 
@@ -276,6 +289,7 @@ client.on("interactionCreate", async interaction => {
         .join("\n");
     };
 
+    // 출력 순서: 패왕 -> 대장 -> 킹덤 -> 킹덤수호
     const embed = new EmbedBuilder()
       .setColor(0x2ECC71)
       .setTitle("📊 음성채널 직업 분포 현황")
@@ -283,7 +297,8 @@ client.on("interactionCreate", async interaction => {
         { name: "🌐 전체", value: "```\n" + formatCounts(countJobs(allMembers)) + "\n```" },
         { name: "⚔️ 패왕", value: "```\n" + formatCounts(countJobs(parsedData.groups.패왕)) + "\n```", inline: true },
         { name: "👑 대장", value: "```\n" + formatCounts(countJobs(parsedData.groups.대장)) + "\n```", inline: true },
-        { name: "🏰 킹덤", value: "```\n" + formatCounts(countJobs(parsedData.groups.킹덤)) + "\n```", inline: true }
+        { name: "🏰 킹덤", value: "```\n" + formatCounts(countJobs(parsedData.groups.킹덤)) + "\n```", inline: true },
+        { name: "🛡️ 킹덤수호", value: "```\n" + formatCounts(countJobs(parsedData.groups.킹덤수호)) + "\n```", inline: true }
       )
       .setTimestamp();
 
@@ -308,7 +323,7 @@ client.on("interactionCreate", async interaction => {
     const embed = new EmbedBuilder()
       .setColor(0xE74C3C)
       .setTitle(`❗ 닉네임 확인 필요 인원 (${unverified.length}명)`)
-      .setDescription("아래 인원들은 닉네임에 [패왕], [대장], [킹덤] 형태의 대괄호 태그가 없거나 양식이 맞지 않습니다.\n```\n" + names + "\n```")
+      .setDescription("아래 인원들은 닉네임에 [패왕], [대장], [킹덤], [킹덤수호] 형태의 대괄호 태그가 없거나 양식이 맞지 않습니다.\n```\n" + names + "\n```")
       .setTimestamp();
 
     return interaction.reply({ embeds: [embed] });
@@ -320,7 +335,6 @@ client.on("error", console.error);
 process.on("unhandledRejection", console.error);
 process.on("uncaughtException", console.error);
 
-// [최신 규격 반영] discord.js v14.17+ 스펙에 맞춰 clientReady 이벤트 감지
 client.once("clientReady", () => {
   console.log(`✅ 디스코드 봇 로그인 완료 : ${client.user.tag}`);
 });
@@ -330,25 +344,22 @@ async function startBot() {
   try {
     if (!TOKEN || TOKEN.length < 10) {
       console.error("❌ 오류: 유효한 TOKEN 값이 설정되지 않았습니다. 프로세스를 일시 중지합니다.");
-      await new Promise(() => {}); // 무한 재시작 방지용 무한 대기
+      await new Promise(() => {});
       return;
     }
 
     console.log("⏳ 슬래시 명령어 서버 즉시 등록 시도 중...");
     
-    // 디스코드 API 서버에 명령어 목록 동기화 요청
     await rest.put(
       Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
       { body: commands }
     );
     console.log("✅ 슬래시 명령어 서버 즉시 등록 완료!");
 
-    // 명령어 등록 성공 후 클라이언트 로그인 실행
     await client.login(TOKEN);
   } catch (error) {
     console.error("❌ 초기화 및 로그인 중 오류 발생:", error);
     
-    // [보안 장치] 401 오류 등으로 실패했을 때 Render가 수초 만에 무한 재시작하여 디스코드가 토큰을 강제 파괴하는 것 방지
     console.log("⚠️ 안전 조치: 무한 재시작 루프를 방지하기 위해 1시간 동안 대기를 시작합니다.");
     await new Promise(resolve => setTimeout(resolve, 3600000));
   }
