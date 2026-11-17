@@ -107,6 +107,8 @@ function parseMemberDetails(member) {
     group = "킹덤";
   } else if (clanTag.includes("에이지")) {
     group = "에이지";
+  } else if (clanTag.includes("고스트")) {
+    group = "고스트";
   }
 
   return {
@@ -127,6 +129,7 @@ function parseVoiceMembers(voiceChannel) {
     킹덤: [],
     킹덤수호: [],
     에이지: [],
+    고스트: [],
     미확인: []
   };
 
@@ -161,12 +164,13 @@ function buildEmbed(timeName, parsedData) {
     });
   };
 
-  // 출력 순서: 패왕 -> 대장 -> 킹덤 -> 킹덤수호 -> 에이지 -> 미확인
+  // 출력 순서: 패왕 -> 대장 -> 킹덤 -> 킹덤수호 -> 에이지 -> 고스트 -> 미확인
   addField("패왕", "⚔️", groups.패왕);
   addField("대장", "👑", groups.대장);
   addField("킹덤", "🏰", groups.킹덤);
   addField("킹덤수호", "🛡️", groups.킹덤수호);
   addField("에이지", "⏳", groups.에이지);
+  addField("고스트", "👻", groups.고스트);
   addField("닉네임 확인 필요", "❗", groups.미확인);
 
   return embed;
@@ -263,6 +267,7 @@ client.on("interactionCreate", async interaction => {
       ...parsedData.groups.킹덤,
       ...parsedData.groups.킹덤수호,
       ...parsedData.groups.에이지,
+      ...parsedData.groups.고스트,
       ...parsedData.groups.미확인
     ];
 
@@ -286,7 +291,7 @@ client.on("interactionCreate", async interaction => {
         .join("\n");
     };
 
-    // 출력 순서: 패왕 -> 대장 -> 킹덤 -> 킹덤수호 -> 에이지
+    // 출력 순서: 패왕 -> 대장 -> 킹덤 -> 킹덤수호 -> 에이지 -> 고스트
     const embed = new EmbedBuilder()
       .setColor(0x2ECC71)
       .setTitle("📊 음성채널 직업 분포 현황")
@@ -296,7 +301,8 @@ client.on("interactionCreate", async interaction => {
         { name: "👑 대장", value: "```\n" + formatCounts(countJobs(parsedData.groups.대장)) + "\n```", inline: true },
         { name: "🏰 킹덤", value: "```\n" + formatCounts(countJobs(parsedData.groups.킹덤)) + "\n```", inline: true },
         { name: "🛡️ 킹덤수호", value: "```\n" + formatCounts(countJobs(parsedData.groups.킹덤수호)) + "\n```", inline: true },
-        { name: "⏳ 에이지", value: "```\n" + formatCounts(countJobs(parsedData.groups.에이지)) + "\n```", inline: true }
+        { name: "⏳ 에이지", value: "```\n" + formatCounts(countJobs(parsedData.groups.에이지)) + "\n```", inline: true },
+        { name: "👻 고스트", value: "```\n" + formatCounts(countJobs(parsedData.groups.고스트)) + "\n```", inline: true }
       )
       .setTimestamp();
 
@@ -321,7 +327,7 @@ client.on("interactionCreate", async interaction => {
     const embed = new EmbedBuilder()
       .setColor(0xE74C3C)
       .setTitle(`❗ 닉네임 확인 필요 인원 (${unverified.length}명)`)
-      .setDescription("아래 인원들은 닉네임에 [패왕], [대장], [킹덤], [킹덤수호], [에이지] 형태의 대괄호 태그가 없거나 양식이 맞지 않습니다.\n```\n" + names + "\n```")
+      .setDescription("아래 인원들은 닉네임에 [패왕], [대장], [킹덤], [킹덤수호], [에이지], [고스트] 형태의 대괄호 태그가 없거나 양식이 맞지 않습니다.\n```\n" + names + "\n```")
       .setTimestamp();
 
     return interaction.reply({ embeds: [embed] });
